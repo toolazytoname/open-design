@@ -63,7 +63,7 @@ created: '2026-05-09'
 
 ### Available Approaches
 
-- Tailwind CSS v4's official Next.js integration path uses `tailwindcss`, `@tailwindcss/postcss`, and `postcss`; PostCSS config loads `@tailwindcss/postcss`, and CSS uses `@import "tailwindcss"`. Source: `https://tailwindcss.com/docs/guides/nextjs`; `https://tailwindcss.com/docs/installation/using-postcss`
+- Tailwind CSS v4's official Next.js integration path uses `tailwindcss`, `@tailwindcss/postcss`, and `postcss`; PostCSS config loads `@tailwindcss/postcss`. The app imports only Tailwind theme and utilities layers so existing `index.css` base/reset behavior remains authoritative. Source: `https://tailwindcss.com/docs/guides/nextjs`; `https://tailwindcss.com/docs/installation/using-postcss`; `https://tailwindcss.com/docs/preflight`
 - Tailwind CSS v4 supports CSS-first theme variables, where the `--color-*` namespace in `@theme` generates color utilities such as `bg-*`, `text-*`, and `border-*`. Source: `https://tailwindcss.com/docs/theme`; `https://tailwindcss.com/docs/customizing-colors`
 - Tailwind CSS v4 can clear the default color namespace with `--color-*: initial`, then declare only color variables that correspond to project tokens. Source: `https://tailwindcss.com/docs/customizing-colors`
 - Tailwind CSS v3 primarily configures theme colors through `tailwind.config.js` / `theme.colors`; the v4 official docs move theme values to CSS theme variables. Source: `https://v3.tailwindcss.com/docs/theme`; `https://tailwindcss.com/docs/upgrade-guide`
@@ -116,7 +116,7 @@ created: '2026-05-09'
 
 ### Design Decisions
 
-- Decision: use Tailwind CSS v4 in `apps/web`, with `tailwindcss`, `@tailwindcss/postcss`, and `postcss`, configured through PostCSS, and use `@import "tailwindcss"` in the existing global CSS entry. Source: `apps/web/package.json:23-50`; `apps/web/app/layout.tsx:1-4`; `https://tailwindcss.com/docs/guides/nextjs`
+- Decision: use Tailwind CSS v4 in `apps/web`, with `tailwindcss`, `@tailwindcss/postcss`, and `postcss`, configured through PostCSS, and import only `@import "tailwindcss/theme";` plus `@import "tailwindcss/utilities";` in the existing global CSS entry. This keeps Tailwind Preflight out of the foundation slice so current base element margins, list markers, and app-specific reset behavior remain controlled by `index.css`. Source: `apps/web/package.json:23-50`; `apps/web/app/layout.tsx:1-4`; `https://tailwindcss.com/docs/guides/nextjs`; `https://tailwindcss.com/docs/preflight`
 - Decision: define Tailwind theme values through CSS `@theme` because v4 converts `--color-*` theme variables into utilities such as `bg-*`, `text-*`, and `border-*`. Source: `https://tailwindcss.com/docs/theme`; `https://tailwindcss.com/docs/customizing-colors`
 - Decision: map Tailwind color tokens to existing runtime CSS variables, such as `--color-bg: var(--bg)`, `--color-panel: var(--bg-panel)`, `--color-accent: var(--accent)`, `--color-danger: var(--red)`, and `--color-success: var(--green)`. Source: `apps/web/src/index.css:6-63`; `apps/web/src/state/appearance.ts:17-52`; `specs/change/20260509-token-first-tailwind/token.md`
 - Decision: clear Tailwind's default color namespace with `--color-*: initial` before declaring project colors, so project classes express the Open Design token set. Source: `https://tailwindcss.com/docs/customizing-colors`; `apps/web/src/index.css:6-49`
@@ -124,7 +124,7 @@ created: '2026-05-09'
 - Decision: `index.css` continues to own token definitions, reset, base element behavior, loading shell, keyframes, and cross-content-area styles; this change preserves existing component abstractions and migrates all replaceable component-level global classes in existing TSX to token-first Tailwind classes. Source: `apps/web/src/index.css:160-219,1121-1143,6219-6299`; `apps/web/app/[[...slug]]/client-app.tsx:5-13`
 - Decision: add project-owned style constraint checks inside `scripts/guard.ts`, reusing the existing guard aggregation model and root command boundary. Source: `scripts/guard.ts:138-151,205-221,401-422`; `AGENTS.md#Root command boundary`
 - Decision: allow explicit exceptions for brand assets, SVG illustrations, canvas/user content colors, and color conversion helpers; app UI chrome uses token classes or CSS variables. Source: `apps/web/src/components/AgentIcon.tsx:46-99`; `apps/web/src/components/SketchEditor.tsx:72,144-149`; `apps/web/src/components/FileViewer.tsx:1448-1474`
-- Decision: project custom Tailwind tokens cover color, radius, shadow, and font; radius/shadow/font utilities resolve to existing CSS variables so cards, popovers, modals, inputs, buttons, dark-theme shadow overrides, editorial typography, and code/file-path text keep their current visuals; spacing and typography scale use native Tailwind utilities, with exact text-size aliases for current 13px and 13.5px UI. Source: `specs/change/20260509-token-first-tailwind/token.md`
+- Decision: project custom Tailwind tokens cover color, radius, shadow, and font; radius/shadow/font utilities resolve to existing CSS variables so cards, popovers, modals, inputs, buttons, dark-theme shadow overrides, editorial typography, and code/file-path text keep their current visuals; spacing and typography scale use native Tailwind utilities, with exact text-size aliases for current 10px, 11.5px, 13px, and 13.5px UI. Source: `specs/change/20260509-token-first-tailwind/token.md`
 - Decision: after dependency or config-related package changes, run `pnpm install`, then run package-scoped web validation and repo checks. Source: `AGENTS.md#Validation strategy`; `apps/web/package.json:23-29`
 - Decision: migration acceptance uses dual-worktree agent comparison. Every migration PR runs independent web/daemon pairs for the baseline and development worktrees, and the agent checks visual consistency for the same scenarios across both services. Screenshot comparison is the required primary artifact; component source inspection supports diagnosis and traceability for migrated styles. Display drift is fixed or recorded as an approved deviation. Source: `AGENTS.md:40-45,82-89,91-104`; `apps/web/src/index.css:65-157`; `apps/web/src/state/appearance.ts:28-52`
 
@@ -195,12 +195,12 @@ Goal: add Tailwind v4 infrastructure, expose Open Design tokens as Tailwind util
   - [ ] Substep 1.1 Implement: Add Tailwind v4/PostCSS dependencies to `apps/web/package.json`.
   - [ ] Substep 1.2 Implement: Add a web-local PostCSS config for `@tailwindcss/postcss`.
   - [ ] Substep 1.3 Implement: Add `apps/web/postcss.config.mjs` to the exact residual JavaScript allowlist in `scripts/guard.ts`, with a comment explaining that the PostCSS/Tailwind config entry needs the `.mjs` compatibility format, keeping `pnpm guard` coverage for planned config files.
-  - [ ] Substep 1.4 Implement: Import Tailwind in `apps/web/src/index.css` while preserving the existing global entry behavior.
+  - [ ] Substep 1.4 Implement: Import Tailwind theme and utilities layers in `apps/web/src/index.css` with `@import "tailwindcss/theme";` and `@import "tailwindcss/utilities";`, while preserving the existing global entry behavior and excluding Preflight from the foundation slice.
   - [ ] Substep 1.5 Verify: Run `pnpm install`.
   - [ ] Substep 1.6 Verify: Run `pnpm guard` and confirm the PostCSS config allowlist works.
   - [ ] Substep 1.7 Verify: Run `pnpm --filter @open-design/web build`.
 - [ ] Step 2: Expose Open Design tokens as Tailwind utilities
-  - [ ] Substep 2.1 Implement: Add CSS-first `@theme` aliases for colors, core semantic status, selection/inspect overlays, radius, shadow, and font tokens; use native Tailwind utilities for spacing and typography scale.
+  - [ ] Substep 2.1 Implement: Add CSS-first `@theme` aliases for colors, core semantic status, selection/inspect overlays, radius, shadow, font tokens, and exact existing UI text-size aliases; use native Tailwind utilities for spacing and standard typography scale.
   - [ ] Substep 2.2 Implement: Clear default Tailwind colors and declare the project-approved color namespace.
   - [ ] Substep 2.3 Implement: Document the token class vocabulary near the theme block.
   - [ ] Substep 2.4 Verify: Confirm light, dark, system, and custom accent modes all resolve through the same CSS variables.
