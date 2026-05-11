@@ -310,9 +310,14 @@ describe('ProjectView conversation run isolation', () => {
   });
 
   it('surfaces conversation message load errors and keeps sends disabled until messages load', async () => {
+    let conversationBLoadAttempts = 0;
     listMessages.mockImplementation(async (_projectId: string, conversationId: string) => {
       if (conversationId === 'conv-a') return [];
-      if (conversationId === 'conv-b') throw new Error('messages unavailable');
+      if (conversationId === 'conv-b') {
+        conversationBLoadAttempts += 1;
+        if (conversationBLoadAttempts === 1) throw new Error('messages unavailable');
+        return [];
+      }
       return [];
     });
 
@@ -329,8 +334,11 @@ describe('ProjectView conversation run isolation', () => {
 
     expect(streamViaDaemon).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByTestId('new-conversation'));
-    await waitFor(() => expect(createConversation).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByTestId('conversation-select-conv-b'));
+
+    await waitFor(() => expect(conversationBLoadAttempts).toBe(2));
+    await waitFor(() => expect(screen.getByTestId('chat-error').textContent).toBe(''));
+    expect(screen.getByTestId('send-message')).toHaveProperty('disabled', false);
   });
 });
 

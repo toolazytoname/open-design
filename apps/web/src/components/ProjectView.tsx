@@ -271,6 +271,7 @@ export function ProjectView({
   const [messagesConversationId, setMessagesConversationId] = useState<string | null>(null);
   const [failedMessagesConversationId, setFailedMessagesConversationId] = useState<string | null>(null);
   const [conversationLoadError, setConversationLoadError] = useState<string | null>(null);
+  const [messageLoadRetryNonce, setMessageLoadRetryNonce] = useState(0);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [previewComments, setPreviewComments] = useState<PreviewComment[]>([]);
   const [attachedComments, setAttachedComments] = useState<PreviewComment[]>([]);
@@ -380,6 +381,7 @@ export function ProjectView({
     setActiveConversationId(null);
     setMessagesConversationId(null);
     setFailedMessagesConversationId(null);
+    setMessageLoadRetryNonce(0);
     setConversationLoadError(null);
     setMessages([]);
     setPreviewComments([]);
@@ -486,7 +488,7 @@ export function ProjectView({
     return () => {
       cancelled = true;
     };
-  }, [project.id, activeConversationId]);
+  }, [project.id, activeConversationId, messageLoadRetryNonce]);
 
   useEffect(() => {
     return () => {
@@ -1203,6 +1205,7 @@ export function ProjectView({
         runStatus: config.mode === 'daemon' ? 'running' : undefined,
         startedAt,
       };
+      activeCompletionNotificationRunsRef.current.add(assistantId);
       const nextHistory = [...messages, userMsg];
       setMessages([...nextHistory, assistantMsg]);
       setStreaming(true);
@@ -1826,8 +1829,11 @@ export function ProjectView({
     setArtifact(null);
     setStreaming(false);
     setMessagesConversationId(null);
+    setFailedMessagesConversationId(null);
+    setConversationLoadError(null);
     messagesConversationIdRef.current = null;
     setActiveConversationId(id);
+    setMessageLoadRetryNonce((nonce) => nonce + 1);
   }, []);
 
   const handleDeleteConversation = useCallback(
