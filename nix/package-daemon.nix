@@ -44,7 +44,7 @@ let
   # `nix build .#daemon` will fail with the expected hash printed; copy
   # that into `pnpmDepsHash` below. Bump it whenever pnpm-lock.yaml
   # changes.
-  pnpmDepsHash = "sha256-KF3Mld72/iau+pJmA7HvnanRx8VLtDP0N624SKrtrrc=";
+  pnpmDepsHash = "sha256-PGFgX4lYyeH2TRAXfUq52A3EOa6bb1gO59hPsXhEk3s=";
   # pnpmDepsHash = lib.fakeHash;
 in
   stdenv.mkDerivation (finalAttrs: {
