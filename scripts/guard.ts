@@ -493,7 +493,11 @@ const realNamedColors = [
   "yellow",
 ].join("|");
 const hardcodedColorPattern = new RegExp(
-  `#[0-9a-fA-F]{3,8}\\b|rgba?\\([^)]*\\)|hsla?\\([^)]*\\)|(?<quote>['\"])\\s*(?<named>${realNamedColors}|transparent|currentColor|currentcolor|inherit|initial|unset|revert)\\s*\\k<quote>`,
+  `#[0-9a-fA-F]{3,8}\\b|rgba?\\([^)]*\\)|hsla?\\([^)]*\\)|(?<quote>['"])\\s*(?<named>${realNamedColors}|transparent|currentColor|currentcolor|inherit|initial|unset|revert)\\s*\\k<quote>`,
+  "g",
+);
+const cssNamedColorDeclarationPattern = new RegExp(
+  `(?:^|[;{])\\s*[-_a-zA-Z][-_a-zA-Z0-9]*\\s*:\\s*(?<named>${realNamedColors})(?=\\s*(?:!important\\s*)?[;}])`,
   "g",
 );
 
@@ -565,6 +569,22 @@ function isHardcodedColorAllowlisted(repositoryPath: string, match: string): boo
   );
 }
 
+function addStylePolicyViolation(
+  violations: StylePolicyViolation[],
+  repositoryPath: string,
+  source: string,
+  index: number,
+  match: string,
+  reason: string,
+): void {
+  violations.push({
+    filePath: repositoryPath,
+    lineNumber: lineNumberForIndex(source, index),
+    match,
+    reason,
+  });
+}
+
 function collectStylePolicyViolationsFromSource(repositoryPath: string, source: string): StylePolicyViolation[] {
   const violations: StylePolicyViolation[] = [];
 
@@ -585,12 +605,30 @@ function collectStylePolicyViolationsFromSource(repositoryPath: string, source: 
       if (isHardcodedColorAllowlisted(repositoryPath, value)) continue;
       if (!isHardcodedColorEnforcedPath(repositoryPath)) continue;
 
-      violations.push({
-        filePath: repositoryPath,
-        lineNumber: lineNumberForIndex(source, match.index ?? 0),
-        match: value,
-        reason: "unregistered hardcoded UI colors must use Open Design tokens or an explicit allowlist entry",
-      });
+      addStylePolicyViolation(
+        violations,
+        repositoryPath,
+        source,
+        match.index ?? 0,
+        value,
+        "unregistered hardcoded UI colors must use Open Design tokens or an explicit allowlist entry",
+      );
+    }
+
+    if (repositoryPath.endsWith(".css") && isHardcodedColorEnforcedPath(repositoryPath)) {
+      for (const match of source.matchAll(cssNamedColorDeclarationPattern)) {
+        const value = match.groups?.named;
+        if (value === undefined || isHardcodedColorAllowlisted(repositoryPath, value)) continue;
+
+        addStylePolicyViolation(
+          violations,
+          repositoryPath,
+          source,
+          (match.index ?? 0) + match[0].lastIndexOf(value),
+          value,
+          "unregistered hardcoded UI colors must use Open Design tokens or an explicit allowlist entry",
+        );
+      }
     }
   }
 
