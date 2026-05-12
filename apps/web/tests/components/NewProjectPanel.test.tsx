@@ -25,6 +25,7 @@ const skills: SkillSummary[] = [
     upstream: null,
     hasBody: true,
     examplePrompt: 'Build a prototype.',
+    aggregatesExamples: false,
   },
 ];
 
@@ -74,6 +75,7 @@ beforeEach(() => {
   globalThis.ResizeObserver = ResizeObserverMock as typeof ResizeObserver;
   Element.prototype.scrollIntoView = vi.fn();
 });
+
 describe('NewProjectPanel design system defaults', () => {
   it('uses the configured default design system when it exists in the catalog', () => {
     expect(defaultDesignSystemSelection('clay', designSystems)).toEqual(['clay']);
@@ -108,6 +110,7 @@ describe('NewProjectPanel design system defaults', () => {
       inspirations: [],
     });
   });
+
   it('preserves prototype fidelity across tab switches and saves it into the create payload', () => {
     const onCreate = vi.fn();
     render(
@@ -277,6 +280,9 @@ describe('NewProjectPanel design system defaults', () => {
         }),
       }),
     );
+    const payload = onCreate.mock.calls[0]?.[0];
+    expect(payload.metadata).not.toHaveProperty('platform');
+    expect(payload.metadata).not.toHaveProperty('platformTargets');
   });
 
   it('prevents template creation when there are no saved templates and enables creation once one exists', () => {
@@ -379,7 +385,7 @@ describe('NewProjectPanel design system defaults', () => {
     );
 
     fireEvent.click(screen.getByRole('tab', { name: 'Media' }));
-    fireEvent.click(screen.getByRole('tab', { name: 'Video' }));
+    fireEvent.click(screen.getByTestId('new-project-media-surface-video'));
     fireEvent.change(screen.getByTestId('new-project-name'), {
       target: { value: 'Video payload metadata' },
     });
@@ -439,6 +445,80 @@ describe('NewProjectPanel design system defaults', () => {
           audioModel: 'minimax-tts',
           audioDuration: 30,
           voice: 'soft contralto guide',
+        }),
+      }),
+    );
+  });
+
+  it('pins skillId to hyperframes when the video model is hyperframes-html, regardless of skill discovery order', () => {
+    // Reproduces PR #866 mrcfps's reported regression: when daemon `readdir()`
+    // returns video skills in an order that puts `video-shortform` ahead of
+    // `hyperframes`, the previous `list[0]?.id` fallback would route the
+    // HyperFrames-HTML model through `video-shortform`, dropping the
+    // hyperframes SKILL body and the html-in-canvas preflight. The fix forces
+    // the create-time skillId to `hyperframes` whenever `hyperframes-html` is
+    // the chosen model.
+    const onCreate = vi.fn();
+    const videoSkills: SkillSummary[] = [
+      {
+        id: 'video-shortform',
+        name: 'Video shortform',
+        description: 'Shortform video skill',
+        mode: 'video',
+        surface: 'video',
+        previewType: 'video',
+        designSystemRequired: false,
+        defaultFor: [],
+        triggers: [],
+        upstream: null,
+        hasBody: true,
+        examplePrompt: '',
+        aggregatesExamples: false,
+      },
+      {
+        id: 'hyperframes',
+        name: 'HyperFrames',
+        description: 'HTML-in-canvas video',
+        mode: 'video',
+        surface: 'video',
+        previewType: 'video',
+        designSystemRequired: false,
+        defaultFor: [],
+        triggers: [],
+        upstream: null,
+        hasBody: true,
+        examplePrompt: '',
+        aggregatesExamples: false,
+      },
+    ];
+
+    render(
+      <NewProjectPanel
+        skills={videoSkills}
+        designSystems={designSystems}
+        defaultDesignSystemId="clay"
+        templates={[]}
+        promptTemplates={[]}
+        onCreate={onCreate}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Media' }));
+    fireEvent.click(screen.getByTestId('new-project-media-surface-video'));
+    fireEvent.click(screen.getByTestId('model-picker-trigger'));
+    fireEvent.click(screen.getByTestId('model-picker-option-hyperframes-html'));
+    fireEvent.change(screen.getByTestId('new-project-name'), {
+      target: { value: 'HyperFrames routing' },
+    });
+    fireEvent.click(screen.getByTestId('create-project'));
+
+    expect(onCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'HyperFrames routing',
+        skillId: 'hyperframes',
+        metadata: expect.objectContaining({
+          kind: 'video',
+          videoModel: 'hyperframes-html',
         }),
       }),
     );
