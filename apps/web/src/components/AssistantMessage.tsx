@@ -28,8 +28,8 @@ import type {
 } from "../types";
 import {
   customReasonLengthBucket,
+  type TrackingFeedbackRatingWithNone,
   type TrackingFeedbackReasonCode,
-  type TrackingPreviousFeedbackRating,
   type TrackingProjectKind,
 } from "@open-design/contracts/analytics";
 import { useAnalytics } from "../analytics/provider";
@@ -485,7 +485,13 @@ function AssistantFeedback({
     setReasonRating(nextRating);
     onFeedback(nextRating ? { rating: nextRating } : null);
     if (analyticsCtx.projectId && analyticsCtx.conversationId) {
-      const previous: TrackingPreviousFeedbackRating = selected ?? "none";
+      const ratingBefore: TrackingFeedbackRatingWithNone = selected ?? "none";
+      // `rating` carries the POST-action state — `'none'` when the user
+      // just cleared their rating. This pairs cleanly with `rating_before`
+      // so a state transition is fully described by the two fields plus
+      // `action`. (Analysts who want to know which thumb was cleared can
+      // read `rating_before`.)
+      const ratingAfter: TrackingFeedbackRatingWithNone = nextRating ?? "none";
       trackAssistantFeedbackClick(analytics.track, {
         page: "studio",
         area: "chat_panel",
@@ -500,10 +506,8 @@ function AssistantFeedback({
         conversation_id: analyticsCtx.conversationId,
         assistant_message_id: analyticsCtx.assistantMessageId,
         run_id: analyticsCtx.runId,
-        // On clear, rating echoes which thumb the user just turned off so
-        // PostHog can group submit/clear pairs by rating.
-        rating: nextRating ?? rating,
-        previous_rating: previous,
+        rating: ratingAfter,
+        rating_before: ratingBefore,
         has_produced_files: analyticsCtx.hasProducedFiles,
       });
     }

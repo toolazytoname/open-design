@@ -138,7 +138,10 @@ export type TrackingCreateResult = 'success' | 'failed';
 export type TrackingExportResult = 'success' | 'failed' | 'cancelled';
 
 export type TrackingFeedbackRating = 'positive' | 'negative';
-export type TrackingPreviousFeedbackRating = 'positive' | 'negative' | 'none';
+// Click events emit `none` when the user clears a previously-set rating, so
+// `rating` (post-state) and `rating_before` (pre-state) on click both use
+// this widened union. Reason events still require a concrete rating.
+export type TrackingFeedbackRatingWithNone = 'positive' | 'negative' | 'none';
 export type TrackingFeedbackAction =
   | 'submit_feedback_rating'
   | 'clear_feedback_rating';
@@ -415,10 +418,18 @@ interface AssistantFeedbackBase {
   rating: TrackingFeedbackRating;
 }
 
-export interface AssistantFeedbackClickProps extends AssistantFeedbackBase {
+// Click events override `rating` to allow `'none'` because the user can
+// clear a previously-set rating; reason_* events still inherit the
+// stricter `positive | negative` base since they only fire after the user
+// commits to a thumb.
+export interface AssistantFeedbackClickProps
+  extends Omit<AssistantFeedbackBase, 'rating'> {
   element: 'assistant_feedback_button';
   action: TrackingFeedbackAction;
-  previous_rating: TrackingPreviousFeedbackRating;
+  /** Post-action state. `'none'` when the user just cleared their rating. */
+  rating: TrackingFeedbackRatingWithNone;
+  /** Pre-action state. Renamed from `previous_rating` for symmetry with `rating`. */
+  rating_before: TrackingFeedbackRatingWithNone;
   has_produced_files: boolean;
 }
 
