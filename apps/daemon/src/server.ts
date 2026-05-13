@@ -3877,9 +3877,7 @@ export async function startServer({
     child.stdout.on('data', (chunk) => {
       childStdoutSeen = true;
       noteAgentActivity();
-      if (def.id === 'claude') {
-        agentStdoutTail = `${agentStdoutTail}${chunk}`.slice(-1000);
-      }
+      agentStdoutTail = `${agentStdoutTail}${chunk}`.slice(-2000);
     });
 
     // ---- Memory: assistant-reply buffer for LLM extraction --------------
@@ -4064,6 +4062,23 @@ export async function startServer({
         if (agentStreamError) return;
         agentStreamError = String(ev.message || 'Agent stream error');
         clearInactivityWatchdog();
+        const authFailure = classifyAgentAuthFailure(
+          agentId,
+          [
+            agentStreamError,
+            typeof ev.raw === 'string' ? ev.raw : '',
+            agentStdoutTail,
+            agentStderrTail,
+          ].join('\n'),
+        );
+        if (authFailure?.status === 'missing') {
+          send('error', createSseErrorPayload(
+            'AGENT_AUTH_REQUIRED',
+            cursorAuthGuidance(),
+            { retryable: true },
+          ));
+          return;
+        }
         send('error', createSseErrorPayload('AGENT_EXECUTION_FAILED', agentStreamError, {
           details: ev.raw ? { raw: ev.raw } : undefined,
           retryable: false,
@@ -4201,7 +4216,7 @@ export async function startServer({
       if (
         code !== 0 &&
         !run.cancelRequested &&
-        classifyAgentAuthFailure(agentId, agentStderrTail)?.status === 'missing'
+        classifyAgentAuthFailure(agentId, `${agentStderrTail}\n${agentStdoutTail}`)?.status === 'missing'
       ) {
         send('error', createSseErrorPayload(
           'AGENT_AUTH_REQUIRED',
