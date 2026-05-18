@@ -321,34 +321,26 @@
 .home-hero__prompt-slot-input--number {
   min-width: 4ch;
 }
+/* `<select>` slots paint their own dropdown chevron as a background
+   image. We can't fall back to the browser's native chevron because
+   `.home-hero__prompt-slot-control` already applies `appearance:
+   none` to neutralise the OS-tinted native widget (which clashes
+   with the orange pill treatment).
+
+   The chevron is intentionally rendered in a neutral muted color
+   rather than the accent orange — earlier iterations used an accent
+   chevron that visually blended with the pill's orange ring corners,
+   so users perceived "a bunch of dropdown arrows" across every
+   highlighted slot. A neutral chevron reads as a single, distinct
+   affordance only on the actual select. */
 .home-hero__prompt-slot-select {
   width: auto;
   max-width: min(100%, 32ch);
-  /* Reserves room for the chevron overlay rendered by the
-     surrounding `.home-hero__prompt-slot-select-wrap`. */
   padding-right: 22px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='6' viewBox='0 0 8 6' fill='none'><path d='M1 1.25L4 4.25L7 1.25' stroke='%2399A1AF' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 7px center;
   cursor: pointer;
-}
-/* Wrap span around <select> slots that hosts the chevron indicator.
-   The wrap is `inline-flex` so it shrinks to the <select>'s natural
-   width and so the chevron can be positioned absolutely against the
-   select's trailing padding without disturbing the surrounding text
-   flow of the prompt overlay. */
-.home-hero__prompt-slot-select-wrap {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  vertical-align: baseline;
-  max-width: 100%;
-}
-.home-hero__prompt-slot-select-chevron {
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--accent);
-  pointer-events: none;
-  opacity: 0.85;
 }
 .home-hero__prompt-slot-toggle {
   cursor: pointer;
