@@ -736,7 +736,7 @@ export function EntryShell({
               ) : (
                 <div className="entry-section">
                   <header className="entry-section__head">
-                    <h1 className="entry-section__title">Projects</h1>
+                    <h1 className="entry-section__title">{t('entry.navProjects')}</h1>
                   </header>
                   <DesignsTab
                     projects={projects}
@@ -769,7 +769,7 @@ export function EntryShell({
               ) : (
                 <div className="entry-section">
                   <header className="entry-section__head">
-                    <h1 className="entry-section__title">Design systems</h1>
+                    <h1 className="entry-section__title">{t('entry.navDesignSystems')}</h1>
                   </header>
                   <DesignSystemsTab
                     systems={designSystems}

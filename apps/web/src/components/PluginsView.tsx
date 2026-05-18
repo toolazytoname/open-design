@@ -43,13 +43,11 @@ const USER_SOURCE_KINDS = new Set<PluginSourceKind>([
 
 const PLUGINS_TABS: ReadonlyArray<{
   id: PluginsTab;
-  label: string;
-  hint: string;
 }> = [
-  { id: 'installed', label: 'Installed', hint: 'Your plugins' },
-  { id: 'available', label: 'Available', hint: 'From sources' },
-  { id: 'sources', label: 'Sources', hint: 'Catalogs' },
-  { id: 'team', label: 'Team', hint: 'Enterprise' },
+  { id: 'installed' },
+  { id: 'available' },
+  { id: 'sources' },
+  { id: 'team' },
 ];
 
 const PLUGIN_SHARE_DETAILS: Record<PluginShareAction, {
@@ -100,7 +98,7 @@ export function PluginsView({
   onUsePlugin,
   onCreatePluginShareProject,
 }: PluginsViewProps) {
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const [plugins, setPlugins] = useState<InstalledPluginRecord[]>([]);
   const [allInstalledPlugins, setAllInstalledPlugins] = useState<InstalledPluginRecord[]>([]);
   const [marketplaces, setMarketplaces] = useState<PluginMarketplace[]>([]);
@@ -261,13 +259,12 @@ export function PluginsView({
     <section className="plugins-view" aria-labelledby="plugins-title">
       <header className="plugins-view__hero">
         <div>
-          <p className="plugins-view__kicker">Plugins</p>
+          <p className="plugins-view__kicker">{t('entry.navPlugins')}</p>
           <h1 id="plugins-title" className="entry-section__title">
-            Plugins
+            {t('entry.navPlugins')}
           </h1>
           <p className="plugins-view__lede">
-            Browse installed workflows, discover registry entries, manage
-            sources, and prepare plugins for team distribution.
+            {t('pluginsView.lede')}
           </p>
         </div>
         <div className="plugins-view__hero-actions">
@@ -278,7 +275,7 @@ export function PluginsView({
             data-testid="plugins-create-button"
           >
             <Icon name="edit" size={13} />
-            <span>Create plugin</span>
+            <span>{t('homeHero.chip.createPlugin')}</span>
           </button>
           <button
             type="button"
@@ -288,22 +285,22 @@ export function PluginsView({
             data-testid="plugins-import-button"
           >
             <Icon name="plus" size={13} />
-            <span>Import plugin</span>
+            <span>{t('pluginsView.importPlugin')}</span>
           </button>
           <div className="plugins-view__badge" aria-hidden="true">
             <Icon name="grid" size={15} />
-            <span>Agent context</span>
+            <span>{t('pluginsView.agentContext')}</span>
           </div>
         </div>
       </header>
 
-      <div className="plugins-view__stats" aria-label="Plugin summary">
-        <StatCard label="Installed" value={userPlugins.length} />
-        <StatCard label="Available" value={availablePlugins.length} />
-        <StatCard label="Sources" value={marketplaces.length} />
+      <div className="plugins-view__stats" aria-label={t('pluginsView.summaryAria')}>
+        <StatCard label={t('pluginsView.tab.installed')} value={userPlugins.length} />
+        <StatCard label={t('pluginsView.tab.available')} value={availablePlugins.length} />
+        <StatCard label={t('pluginsView.tab.sources')} value={marketplaces.length} />
       </div>
 
-      <nav className="plugins-view__tabs" role="tablist" aria-label="Plugin areas">
+      <nav className="plugins-view__tabs" role="tablist" aria-label={t('pluginsView.areasAria')}>
         {PLUGINS_TABS.map((tab) => {
           const active = tab.id === activeTab;
           return (
@@ -321,8 +318,8 @@ export function PluginsView({
               onClick={() => setActiveTab(tab.id)}
               data-testid={`plugins-tab-${tab.id}`}
             >
-              <span className="plugins-view__tab-label">{tab.label}</span>
-              <span className="plugins-view__tab-hint">{tab.hint}</span>
+              <span className="plugins-view__tab-label">{pluginTabLabel(tab.id, t)}</span>
+              <span className="plugins-view__tab-hint">{pluginTabHint(tab.id, t)}</span>
             </button>
           );
         })}
@@ -331,7 +328,7 @@ export function PluginsView({
       {notice ? <Notice outcome={notice} /> : null}
 
       <div className="plugins-view__gallery">
-        {loading ? <div className="plugins-view__empty">Loading plugins…</div> : null}
+        {loading ? <div className="plugins-view__empty">{t('pluginsView.loading')}</div> : null}
 
         {!loading && activeTab === 'installed' ? (
           <PluginsHomeSection
@@ -347,9 +344,9 @@ export function PluginsView({
             }
             onCreatePlugin={onCreatePlugin}
             preferDefaultFacet={false}
-            title="Installed plugins"
-            subtitle="Plugins you imported or installed from marketplace sources."
-            emptyMessage="No installed user plugins yet. Use Create / Import or install an Available entry."
+            title={t('pluginsView.installedTitle')}
+            subtitle={t('pluginsView.installedSubtitle')}
+            emptyMessage={t('pluginsView.installedEmpty')}
           />
         ) : null}
 
@@ -359,6 +356,7 @@ export function PluginsView({
             pendingKey={pendingInstallEntry}
             onOpenDetails={setAvailableDetails}
             onInstall={(plugin) => void handleInstallAvailable(plugin)}
+            t={t}
           />
         ) : null}
 
@@ -384,10 +382,11 @@ export function PluginsView({
                 setPluginMarketplaceTrust(marketplace.id, trust),
               )
             }
+            t={t}
           />
         ) : null}
 
-        {activeTab === 'team' ? <TeamPanel /> : null}
+        {activeTab === 'team' ? <TeamPanel t={t} /> : null}
       </div>
 
       {detailsRecord ? (
@@ -611,6 +610,24 @@ function StatCard({ label, value }: { label: string; value: number }) {
   );
 }
 
+function pluginTabLabel(id: PluginsTab, t: ReturnType<typeof useI18n>['t']): string {
+  switch (id) {
+    case 'installed': return t('pluginsView.tab.installed');
+    case 'available': return t('pluginsView.tab.available');
+    case 'sources': return t('pluginsView.tab.sources');
+    case 'team': return t('pluginsView.tab.team');
+  }
+}
+
+function pluginTabHint(id: PluginsTab, t: ReturnType<typeof useI18n>['t']): string {
+  switch (id) {
+    case 'installed': return t('pluginsView.tabHint.installed');
+    case 'available': return t('pluginsView.tabHint.available');
+    case 'sources': return t('pluginsView.tabHint.sources');
+    case 'team': return t('pluginsView.tabHint.team');
+  }
+}
+
 function Notice({
   outcome,
 }: {
@@ -651,11 +668,13 @@ function AvailablePluginsPanel({
   pendingKey,
   onOpenDetails,
   onInstall,
+  t,
 }: {
   plugins: AvailableMarketplacePlugin[];
   pendingKey: string | null;
   onOpenDetails: (plugin: AvailableMarketplacePlugin) => void;
   onInstall: (plugin: AvailableMarketplacePlugin) => void;
+  t: ReturnType<typeof useI18n>['t'];
 }) {
   const [query, setQuery] = useState('');
   const [sourceFilter, setSourceFilter] = useState('all');
@@ -670,8 +689,8 @@ function AvailablePluginsPanel({
     <section className="plugins-view__section" aria-labelledby="plugins-available-title">
       <div className="plugins-view__section-head">
         <div>
-          <h2 id="plugins-available-title">Available from sources</h2>
-          <p>Catalog entries discovered from configured marketplaces.</p>
+          <h2 id="plugins-available-title">{t('pluginsView.availableTitle')}</h2>
+          <p>{t('pluginsView.availableSubtitle')}</p>
         </div>
         <span className="plugins-view__section-count">
           {filteredPlugins.length === plugins.length
@@ -680,37 +699,37 @@ function AvailablePluginsPanel({
         </span>
       </div>
       {plugins.length > 0 ? (
-        <div className="plugins-view__available-controls" aria-label="Available plugin filters">
+        <div className="plugins-view__available-controls" aria-label={t('pluginsView.availableFiltersAria')}>
           <div className="plugins-view__search">
             <Icon name="search" size={13} className="plugins-view__search-icon" />
             <input
               id="plugins-available-search"
               type="search"
-              aria-label="Search available plugins"
+              aria-label={t('pluginsView.searchAvailableAria')}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search available plugins"
+              placeholder={t('pluginsView.searchAvailablePlaceholder')}
             />
             {query ? (
               <button
                 type="button"
                 className="plugins-view__search-clear"
                 onClick={() => setQuery('')}
-                aria-label="Clear available plugin search"
-                title="Clear search"
+                aria-label={t('pluginsView.clearAvailableSearch')}
+                title={t('pluginsHome.clearSearch')}
               >
                 <Icon name="close" size={11} />
               </button>
             ) : null}
           </div>
           <label className="plugins-view__filter" htmlFor="plugins-available-source">
-            <span>Source</span>
+            <span>{t('pluginsView.source')}</span>
             <select
               id="plugins-available-source"
               value={sourceFilter}
               onChange={(event) => setSourceFilter(event.target.value)}
             >
-              <option value="all">All sources</option>
+              <option value="all">{t('promptTemplates.allSources')}</option>
               {sourceOptions.map((option) => (
                 <option key={option.id} value={option.id}>
                   {option.label}
@@ -722,14 +741,13 @@ function AvailablePluginsPanel({
       ) : null}
       {plugins.length === 0 ? (
         <div className="plugins-view__empty">
-          No available entries yet. Installed catalog entries are removed from Available;
-          uninstall one to make it available again.
+          {t('pluginsView.availableEmptyInstalled')}
         </div>
       ) : filteredPlugins.length === 0 ? (
         <div className="plugins-view__empty">
           {filterActive
-            ? 'No available entries match your filters.'
-            : 'No available entries yet. Add a source in the Sources tab.'}
+            ? t('pluginsView.availableEmptyFiltered')
+            : t('pluginsView.availableEmptyNoSources')}
         </div>
       ) : (
         <div className="plugins-view__available-list">
@@ -761,7 +779,7 @@ function AvailablePluginsPanel({
                     onClick={() => onOpenDetails(plugin)}
                     data-testid={`plugins-available-details-${plugin.entry.name}`}
                   >
-                    Details
+                    {t('homeHero.details')}
                   </button>
                   <button
                     type="button"
@@ -770,7 +788,7 @@ function AvailablePluginsPanel({
                     disabled={pendingKey === plugin.key}
                     data-testid={`plugins-available-install-${plugin.entry.name}`}
                   >
-                    {pendingKey === plugin.key ? 'Installing…' : 'Install'}
+                    {pendingKey === plugin.key ? t('pluginsView.installing') : t('pluginsView.install')}
                   </button>
                 </div>
               </article>
@@ -982,6 +1000,7 @@ function SourcesPanel({
   onRefresh,
   onRemove,
   onTrust,
+  t,
 }: {
   marketplaces: PluginMarketplace[];
   pendingAction: string | null;
@@ -989,6 +1008,7 @@ function SourcesPanel({
   onRefresh: (marketplace: PluginMarketplace) => void;
   onRemove: (marketplace: PluginMarketplace) => void;
   onTrust: (marketplace: PluginMarketplace, trust: PluginMarketplaceTrust) => void;
+  t: ReturnType<typeof useI18n>['t'];
 }) {
   const [url, setUrl] = useState('');
   const [trust, setTrust] = useState<PluginMarketplaceTrust>('restricted');
@@ -997,8 +1017,8 @@ function SourcesPanel({
     <section className="plugins-view__section" aria-labelledby="plugins-sources-title">
       <div className="plugins-view__section-head">
         <div>
-          <h2 id="plugins-sources-title">Registry sources</h2>
-          <p>Marketplace catalogs that feed Available plugin entries.</p>
+          <h2 id="plugins-sources-title">{t('pluginsView.sourcesTitle')}</h2>
+          <p>{t('pluginsView.sourcesSubtitle')}</p>
         </div>
         <span className="plugins-view__section-count">{marketplaces.length}</span>
       </div>
@@ -1012,7 +1032,7 @@ function SourcesPanel({
           setUrl('');
         }}
       >
-        <label htmlFor="plugin-marketplace-url">Source URL</label>
+        <label htmlFor="plugin-marketplace-url">{t('pluginsView.sourceUrl')}</label>
         <div className="plugins-view__source-row">
           <input
             id="plugin-marketplace-url"
@@ -1025,25 +1045,25 @@ function SourcesPanel({
             value={trust}
             onChange={(event) => setTrust(event.target.value as PluginMarketplaceTrust)}
             disabled={pendingAction === 'add'}
-            aria-label="Default trust"
+            aria-label={t('pluginsView.defaultTrust')}
           >
-            <option value="restricted">Restricted</option>
-            <option value="trusted">Trusted</option>
-            <option value="official">Official</option>
+            <option value="restricted">{t('pluginsView.trust.restricted')}</option>
+            <option value="trusted">{t('pluginsView.trust.trusted')}</option>
+            <option value="official">{t('pluginsView.trust.official')}</option>
           </select>
           <button
             type="submit"
             className="plugins-view__primary"
             disabled={!trimmedUrl || pendingAction === 'add'}
           >
-            {pendingAction === 'add' ? 'Adding…' : 'Add source'}
+            {pendingAction === 'add' ? t('pluginsView.adding') : t('pluginsView.addSource')}
           </button>
         </div>
       </form>
 
       {marketplaces.length === 0 ? (
         <div className="plugins-view__empty">
-          No registry sources configured yet.
+          {t('pluginsView.sourcesEmpty')}
         </div>
       ) : (
         <div className="plugins-view__marketplaces">
@@ -1056,8 +1076,8 @@ function SourcesPanel({
                 </a>
                 <div className="plugins-view__meta">
                   <span>{marketplace.trust}</span>
-                  <span>{marketplace.manifest.plugins?.length ?? 0} plugins</span>
-                  {marketplace.version ? <span>catalog v{marketplace.version}</span> : null}
+                  <span>{t('pluginsView.pluginsCount', { n: marketplace.manifest.plugins?.length ?? 0 })}</span>
+                  {marketplace.version ? <span>{t('pluginsView.catalogVersion', { version: marketplace.version })}</span> : null}
                 </div>
               </div>
               <div className="plugins-view__source-actions">
@@ -1066,12 +1086,12 @@ function SourcesPanel({
                   onChange={(event) =>
                     onTrust(marketplace, event.target.value as PluginMarketplaceTrust)
                   }
-                  aria-label={`Trust for ${marketplace.manifest.name ?? marketplace.url}`}
+                  aria-label={t('pluginsView.trustFor', { name: marketplace.manifest.name ?? marketplace.url })}
                   disabled={pendingAction?.startsWith(`trust:${marketplace.id}:`)}
                 >
-                  <option value="restricted">Restricted</option>
-                  <option value="trusted">Trusted</option>
-                  <option value="official">Official</option>
+                  <option value="restricted">{t('pluginsView.trust.restricted')}</option>
+                  <option value="trusted">{t('pluginsView.trust.trusted')}</option>
+                  <option value="official">{t('pluginsView.trust.official')}</option>
                 </select>
                 <button
                   type="button"
@@ -1079,7 +1099,7 @@ function SourcesPanel({
                   onClick={() => onRefresh(marketplace)}
                   disabled={pendingAction === `refresh:${marketplace.id}`}
                 >
-                  {pendingAction === `refresh:${marketplace.id}` ? 'Refreshing…' : 'Refresh'}
+                  {pendingAction === `refresh:${marketplace.id}` ? t('pluginsView.refreshing') : t('designFiles.refresh')}
                 </button>
                 <button
                   type="button"
@@ -1087,7 +1107,7 @@ function SourcesPanel({
                   onClick={() => onRemove(marketplace)}
                   disabled={pendingAction === `remove:${marketplace.id}`}
                 >
-                  {pendingAction === `remove:${marketplace.id}` ? 'Removing…' : 'Remove'}
+                  {pendingAction === `remove:${marketplace.id}` ? t('pluginsView.removing') : t('chat.comments.remove')}
                 </button>
               </div>
             </article>
@@ -1442,18 +1462,17 @@ function normalizePluginName(name: string): string {
   return name.trim().toLowerCase();
 }
 
-function TeamPanel() {
+function TeamPanel({ t }: { t: ReturnType<typeof useI18n>['t'] }) {
   return (
     <section className="plugins-view__team" aria-labelledby="plugins-team-title">
       <span className="plugins-view__future-icon" aria-hidden>
         <Icon name="sparkles" size={18} />
       </span>
       <div>
-        <p className="plugins-view__kicker">Coming soon</p>
-        <h2 id="plugins-team-title">Private team marketplaces</h2>
+        <p className="plugins-view__kicker">{t('tasks.comingSoon')}</p>
+        <h2 id="plugins-team-title">{t('pluginsView.teamTitle')}</h2>
         <p>
-          This area is reserved for enterprise and team catalogs, private trust
-          policies, and shared plugin lifecycle controls.
+          {t('pluginsView.teamBody')}
         </p>
       </div>
     </section>
