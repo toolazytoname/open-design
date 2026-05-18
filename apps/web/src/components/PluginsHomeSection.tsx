@@ -19,10 +19,7 @@ import type { InstalledPluginRecord } from '@open-design/contracts';
 import type { PluginShareAction } from '../state/projects';
 import { Icon } from './Icon';
 import { PluginCard } from './plugins-home/PluginCard';
-import {
-  usePluginFacets,
-  type FilterMode,
-} from './plugins-home/usePluginFacets';
+import { usePluginFacets } from './plugins-home/usePluginFacets';
 import type { FacetOption } from './plugins-home/facets';
 import type { PluginUseAction } from './plugins-home/useActions';
 
@@ -107,10 +104,6 @@ export function PluginsHomeSection({
               Browse registry
             </button>
           ) : null}
-          <SearchInput value={query} onChange={setQuery} />
-          <span className="plugins-home__count">
-            {loading ? '…' : `${filtered.length} of ${totalVisible}`}
-          </span>
         </div>
       </header>
 
@@ -122,14 +115,6 @@ export function PluginsHomeSection({
         </div>
       ) : (
         <>
-          <ModeRow
-            mode={mode}
-            featuredCount={featuredList.length}
-            totalVisible={totalVisible}
-            hasActiveFacet={hasActiveFacet}
-            onModeChange={setMode}
-            onClearFacets={clearFacets}
-          />
           <div
             className="plugins-home__facets"
             role="group"
@@ -140,6 +125,16 @@ export function PluginsHomeSection({
               selectedSlug={selection.category}
               totalVisible={totalVisible}
               onPick={pickCategory}
+              featuredCount={featuredList.length}
+              featuredActive={mode === 'featured'}
+              onToggleFeatured={() =>
+                setMode(mode === 'featured' ? 'all' : 'featured')
+              }
+              filteredCount={filtered.length}
+              query={query}
+              onQueryChange={setQuery}
+              hasActiveFacet={hasActiveFacet}
+              onClearFacets={clearFacets}
             />
             {selection.category ? (
               <SubcategoryRow
@@ -253,72 +248,41 @@ function ContributionCard({
   );
 }
 
-interface ModeRowProps {
-  mode: FilterMode;
-  featuredCount: number;
-  totalVisible: number;
-  hasActiveFacet: boolean;
-  onModeChange: (next: FilterMode) => void;
-  onClearFacets: () => void;
-}
-
-// Tiny strip above the category row: Featured override + a clear-link
-// when at least one filter is active. Kept compact so the category
-// bar is what the eye lands on first.
-function ModeRow({
-  mode,
-  featuredCount,
-  totalVisible,
-  hasActiveFacet,
-  onModeChange,
-  onClearFacets,
-}: ModeRowProps) {
-  return (
-    <div className="plugins-home__mode" role="group" aria-label="Plugin mode">
-      {featuredCount > 0 ? (
-        <button
-          type="button"
-          className={[
-            'plugins-home__chip',
-            'plugins-home__chip--featured',
-            mode === 'featured' ? 'is-active' : '',
-          ]
-            .filter(Boolean)
-            .join(' ')}
-          onClick={() => onModeChange(mode === 'featured' ? 'all' : 'featured')}
-          aria-pressed={mode === 'featured'}
-          data-testid="plugins-home-chip-featured"
-        >
-          <Icon name="star" size={11} />
-          <span>Featured</span>
-          <span className="plugins-home__chip-count">{featuredCount}</span>
-        </button>
-      ) : null}
-      <span className="plugins-home__mode-total">
-        {totalVisible} in catalog
-      </span>
-      {hasActiveFacet ? (
-        <button
-          type="button"
-          className="plugins-home__linkbtn"
-          onClick={onClearFacets}
-          data-testid="plugins-home-clear"
-        >
-          Clear filters
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
 interface CategoryRowProps {
   options: FacetOption[];
   selectedSlug: string | null;
   totalVisible: number;
   onPick: (slug: string | null) => void;
+  featuredCount: number;
+  featuredActive: boolean;
+  onToggleFeatured: () => void;
+  filteredCount: number;
+  query: string;
+  onQueryChange: (next: string) => void;
+  hasActiveFacet: boolean;
+  onClearFacets: () => void;
 }
 
-function CategoryRow({ options, selectedSlug, totalVisible, onPick }: CategoryRowProps) {
+// Single combined filter bar: Featured override chip + category pills
+// on the left, search + result count + clear-filters affordance on
+// the right. Folding what used to be three separate strips (mode
+// row, search-in-header, category row) into one keeps the eye on
+// a single horizontal control surface instead of scanning four
+// floating clusters.
+function CategoryRow({
+  options,
+  selectedSlug,
+  totalVisible,
+  onPick,
+  featuredCount,
+  featuredActive,
+  onToggleFeatured,
+  filteredCount,
+  query,
+  onQueryChange,
+  hasActiveFacet,
+  onClearFacets,
+}: CategoryRowProps) {
   if (options.length === 0) return null;
   return (
     <div
@@ -330,6 +294,25 @@ function CategoryRow({ options, selectedSlug, totalVisible, onPick }: CategoryRo
         role="tablist"
         aria-label="Category filter"
       >
+        {featuredCount > 0 ? (
+          <button
+            type="button"
+            className={[
+              'plugins-home__chip',
+              'plugins-home__chip--featured',
+              featuredActive ? 'is-active' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            onClick={onToggleFeatured}
+            aria-pressed={featuredActive}
+            data-testid="plugins-home-chip-featured"
+          >
+            <Icon name="star" size={11} />
+            <span>Featured</span>
+            <span className="plugins-home__chip-count">{featuredCount}</span>
+          </button>
+        ) : null}
         <CategoryPill
           slug={null}
           label="All"
@@ -348,6 +331,22 @@ function CategoryRow({ options, selectedSlug, totalVisible, onPick }: CategoryRo
             onPick={onPick}
           />
         ))}
+      </div>
+      <div className="plugins-home__facet-tools">
+        <SearchInput value={query} onChange={onQueryChange} />
+        <span className="plugins-home__count" data-testid="plugins-home-count">
+          {filteredCount} / {totalVisible}
+        </span>
+        {hasActiveFacet ? (
+          <button
+            type="button"
+            className="plugins-home__linkbtn"
+            onClick={onClearFacets}
+            data-testid="plugins-home-clear"
+          >
+            Clear
+          </button>
+        ) : null}
       </div>
     </div>
   );
