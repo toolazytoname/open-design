@@ -540,8 +540,23 @@ export async function generateMedia(args: {
       bytes = result.bytes;
       providerNote = result.providerNote;
       suggestedExt = result.suggestedExt;
-    } else if (def.provider === 'minimax' && surface === 'audio') {
+    } else if (def.provider === 'minimax' && surface === 'audio' && audioKind === 'music') {
+      const result = await renderMinimaxMusic(ctx, credentials);
+      bytes = result.bytes;
+      providerNote = result.providerNote;
+      suggestedExt = result.suggestedExt;
+    } else if (def.provider === 'minimax' && surface === 'audio' && audioKind !== 'music') {
       const result = await renderMinimaxTTS(ctx, credentials);
+      bytes = result.bytes;
+      providerNote = result.providerNote;
+      suggestedExt = result.suggestedExt;
+    } else if (def.provider === 'minimax' && surface === 'image') {
+      const result = await renderMinimaxImage(ctx, credentials);
+      bytes = result.bytes;
+      providerNote = result.providerNote;
+      suggestedExt = result.suggestedExt;
+    } else if (def.provider === 'minimax' && surface === 'video') {
+      const result = await renderMinimaxVideo(ctx, credentials, args.onProgress);
       bytes = result.bytes;
       providerNote = result.providerNote;
       suggestedExt = result.suggestedExt;
@@ -2063,6 +2078,301 @@ async function renderMinimaxTTS(ctx: MediaContext, credentials: ProviderConfig):
     bytes,
     providerNote: `minimax/${wireModel} · ${voiceId} · ${seconds}s · ${bytes.length} bytes`,
     suggestedExt: '.mp3',
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Provider: MiniMax — music-2.6 text-to-music (synchronous).
+//
+// Docs: https://platform.minimaxi.com/docs/api-reference/music-generation
+// Endpoint: POST /v1/music_generation
+//   Body: { model: "music-2.6", prompt, lyrics, input_generate_mode: "original" }
+// Response (sync): { base_resp: { status_code: 0 }, data: { audio: "<hex>", status: 2 } }
+//   status=2 means completed; audio is returned directly as hex in data.audio
+//
+async function renderMinimaxMusic(ctx: MediaContext, credentials: ProviderConfig): Promise<RenderResult> {
+  if (!credentials.apiKey) {
+    throw new Error(
+      'no MiniMax API key — configure it in Settings or set OD_MINIMAX_API_KEY',
+    );
+  }
+  const baseUrl = (credentials.baseUrl || MINIMAX_DEFAULT_BASE_URL).replace(/\/$/, '');
+  // "minimax-music-26" (catalog) → "music-2.6" (wire)
+  const wireModel = ctx.wireModel !== ctx.model
+    ? ctx.wireModel
+    : 'music-2.6';
+
+  const body: Record<string, unknown> = {
+    model: wireModel,
+    input_generate_mode: 'original',
+    prompt: ctx.prompt || 'a happy pop song',
+  };
+
+  // lyrics is required for music-2.6 — auto-generate simple lyrics from prompt
+  const promptText = ctx.prompt && ctx.prompt.trim() ? ctx.prompt.trim() : 'happy pop song';
+  body.lyrics = `[Intro]\n${promptText}\n[Verse]\n${promptText}\n[Chorus]\n${promptText} again\n`;
+
+  const resp = await fetch(`${baseUrl}/music_generation`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${credentials.apiKey}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  const respText = await resp.text();
+  if (!resp.ok) {
+    throw new Error(`minimax music ${resp.status}: ${truncate(respText, 240)}`);
+  }
+  let data: any;
+  try {
+    data = JSON.parse(respText);
+  } catch {
+    throw new Error(`minimax music non-JSON: ${truncate(respText, 200)}`);
+  }
+  if (data?.base_resp && data.base_resp.status_code !== 0) {
+    throw new Error(
+      `minimax music api error ${data.base_resp.status_code}: ${data.base_resp.status_msg || 'unknown'}`,
+    );
+  }
+  // Music API returns audio synchronously in data.audio (hex-encoded MP3)
+  const hexAudio = data?.data?.audio;
+  if (!hexAudio || typeof hexAudio !== 'string') {
+    throw new Error('minimax music response missing data.audio');
+  }
+  const bytes = Buffer.from(hexAudio, 'hex');
+  if (bytes.length === 0) {
+    throw new Error('minimax music decoded zero bytes');
+  }
+
+  return {
+    bytes,
+    providerNote: `minimax/${wireModel} · ${bytes.length} bytes`,
+    suggestedExt: '.mp3',
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Provider: MiniMax — image-01 text-to-image (synchronous).
+//
+// Docs: https://platform.minimaxi.com/docs/api-reference/image-generation-t2i
+// Endpoint: POST /v1/image_generation
+// Response: { base_resp: {...}, data: { image_base64: ["..."] } }
+//
+async function renderMinimaxImage(ctx: MediaContext, credentials: ProviderConfig): Promise<RenderResult> {
+  if (!credentials.apiKey) {
+    throw new Error(
+      'no MiniMax API key — configure it in Settings or set OD_MINIMAX_API_KEY',
+    );
+  }
+  const baseUrl = (credentials.baseUrl || MINIMAX_DEFAULT_BASE_URL).replace(/\/$/, '');
+  const model = ctx.wireModel || 'image-01';
+
+  const body: Record<string, unknown> = {
+    model,
+    prompt: ctx.prompt || 'A high-quality reference image.',
+    // Request base64 directly to avoid OSS URL Signature=*** download issue.
+    response_format: 'base64',
+  };
+
+  // MiniMax supports aspect_ratio: 1:1, 16:9, 9:16, 4:3, 3:4, etc.
+  if (ctx.aspect) {
+    body.aspect_ratio = ctx.aspect;
+  }
+
+  const resp = await fetch(`${baseUrl}/image_generation`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${credentials.apiKey}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  const respText = await resp.text();
+  if (!resp.ok) {
+    throw new Error(`minimax image ${resp.status}: ${truncate(respText, 240)}`);
+  }
+  let data: any;
+  try {
+    data = JSON.parse(respText);
+  } catch {
+    throw new Error(`minimax image non-JSON: ${truncate(respText, 200)}`);
+  }
+  if (data?.base_resp && data.base_resp.status_code !== 0) {
+    throw new Error(
+      `minimax image api error ${data.base_resp.status_code}: ${data.base_resp.status_msg || 'unknown'}`,
+    );
+  }
+  // API returns { data: { image_base64: [ "..." ] } }
+  const imageBase64 = data?.data?.image_base64;
+  if (!Array.isArray(imageBase64) || !imageBase64[0]) {
+    throw new Error('minimax image response missing data.image_base64');
+  }
+  const bytes = Buffer.from(imageBase64[0], 'base64');
+  return {
+    bytes,
+    providerNote: `minimax/${model} · ${ctx.aspect || 'default'} · ${bytes.length} bytes`,
+    suggestedExt: sniffImageExt(bytes),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Provider: MiniMax — Hailuo video text-to-video / image-to-video (async poll).
+//
+// Docs: https://platform.minimaxi.com/docs/api-reference/video-generation-t2v
+// Submit: POST /v1/video_generation
+//   Body: { model: "MiniMax-Hailuo-2.3", prompt, resolution?, duration? }
+// Poll:  GET /v1/query/video_generation?task_id=...
+//   Poll response: { task_id, status, file_id, video_width, video_height }
+//   status: "Success" | "processing" | "failed"
+// Done:  GET /v1/files/retrieve?file_id=... → { download_url }
+//
+async function renderMinimaxVideo(
+  ctx: MediaContext,
+  credentials: ProviderConfig,
+  onProgress?: ProgressFn,
+): Promise<RenderResult> {
+  if (!credentials.apiKey) {
+    throw new Error(
+      'no MiniMax API key — configure it in Settings or set OD_MINIMAX_API_KEY',
+    );
+  }
+  const baseUrl = (credentials.baseUrl || MINIMAX_DEFAULT_BASE_URL).replace(/\/$/, '');
+  // Wire model: "minimax-video-01" (catalog id) maps to "MiniMax-Hailuo-2.3" on the API.
+  const wireModel = ctx.wireModel !== ctx.model
+    ? ctx.wireModel
+    : 'MiniMax-Hailuo-2.3';
+
+  const body: Record<string, unknown> = {
+    model: wireModel,
+    prompt: ctx.prompt || 'A short cinematic clip.',
+  };
+
+  if (ctx.aspect) {
+    body.aspect_ratio = ctx.aspect;
+  }
+
+  // duration in seconds (MiniMax supports 3/5/6/10/15/30s); default 6s
+  if (ctx.length) {
+    body.duration = ctx.length;
+  }
+
+  // i2v: attach a reference image
+  if (ctx.imageRef && ctx.imageRef.dataUrl) {
+    body.image_url = ctx.imageRef.dataUrl;
+  }
+
+  const resp = await fetch(`${baseUrl}/video_generation`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${credentials.apiKey}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  const respText = await resp.text();
+  if (!resp.ok) {
+    throw new Error(`minimax video submit ${resp.status}: ${truncate(respText, 240)}`);
+  }
+  let data: any;
+  try {
+    data = JSON.parse(respText);
+  } catch {
+    throw new Error(`minimax video non-JSON: ${truncate(respText, 200)}`);
+  }
+  if (data?.base_resp && data.base_resp.status_code !== 0) {
+    throw new Error(
+      `minimax video submit api error ${data.base_resp.status_code}: ${data.base_resp.status_msg || 'unknown'}`,
+    );
+  }
+
+  // MiniMax returns { task_id: "..." } on success
+  const taskId = data?.data?.task_id || data?.task_id;
+  if (!taskId) {
+    throw new Error(`minimax video response missing task_id`);
+  }
+
+  if (typeof onProgress === 'function') {
+    onProgress(`minimax video task ${taskId} accepted; polling status…`);
+  }
+
+  // Poll until status is "Success" or "failed"
+  const startedAt = Date.now();
+  const maxMs = 5 * 60 * 1000; // 5 min timeout
+  let lastStatus = '';
+  let fileId: string | null = null;
+
+  while (Date.now() - startedAt < maxMs) {
+    await sleep(5000);
+    const pollResp = await fetch(
+      `${baseUrl}/query/video_generation?task_id=${encodeURIComponent(taskId)}`,
+      { headers: { authorization: `Bearer ${credentials.apiKey}` } },
+    );
+    const pollText = await pollResp.text();
+    if (!pollResp.ok) {
+      throw new Error(`minimax video poll ${pollResp.status}: ${truncate(pollText, 240)}`);
+    }
+    let pollData: any;
+    try {
+      pollData = JSON.parse(pollText);
+    } catch {
+      throw new Error(`minimax video poll non-JSON: ${truncate(pollText, 200)}`);
+    }
+    lastStatus = pollData?.status || pollData?.data?.status || '';
+    if (typeof onProgress === 'function') {
+      const elapsedSec = Math.round((Date.now() - startedAt) / 1000);
+      onProgress(`minimax task ${taskId} status=${lastStatus || 'pending'} (elapsed ${elapsedSec}s)`);
+    }
+    if (lastStatus === 'Success') {
+      fileId = pollData?.file_id || pollData?.data?.file_id || null;
+      break;
+    }
+    if (lastStatus === 'failed' || lastStatus === 'Failed') {
+      const reason = pollData?.status_msg || pollData?.data?.status_msg || lastStatus;
+      throw new Error(`minimax video task failed: ${reason}`);
+    }
+  }
+
+  if (!fileId) {
+    const elapsedSec = Math.round((Date.now() - startedAt) / 1000);
+    throw new Error(
+      `minimax video timed out after ${elapsedSec}s (last status: ${lastStatus || 'pending'})`,
+    );
+  }
+
+  // Retrieve download URL via file_id
+  const fileResp = await fetch(
+    `${baseUrl}/files/retrieve?file_id=${encodeURIComponent(fileId)}`,
+    { headers: { authorization: `Bearer ${credentials.apiKey}` } },
+  );
+  const fileText = await fileResp.text();
+  if (!fileResp.ok) {
+    throw new Error(`minimax video file retrieve ${fileResp.status}: ${truncate(fileText, 240)}`);
+  }
+  let fileData: any;
+  try {
+    fileData = JSON.parse(fileText);
+  } catch {
+    throw new Error(`minimax video file retrieve non-JSON: ${truncate(fileText, 200)}`);
+  }
+  if (fileData?.base_resp && fileData.base_resp.status_code !== 0) {
+    throw new Error(
+      `minimax video file retrieve api error ${fileData.base_resp.status_code}: ${fileData.base_resp.status_msg || 'unknown'}`,
+    );
+  }
+  const downloadUrl = fileData?.file?.download_url;
+  if (!downloadUrl) {
+    throw new Error(`minimax video response missing download_url`);
+  }
+
+  const dlResp = await fetch(downloadUrl);
+  if (!dlResp.ok) throw new Error(`minimax video fetch ${dlResp.status}`);
+  const bytes = Buffer.from(await dlResp.arrayBuffer());
+
+  return {
+    bytes,
+    providerNote: `minimax/${wireModel} · ${ctx.aspect || 'default'} · ${bytes.length} bytes`,
+    suggestedExt: '.mp4',
   };
 }
 

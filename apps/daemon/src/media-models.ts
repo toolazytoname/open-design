@@ -111,6 +111,9 @@ export const IMAGE_MODELS: MediaModel[] = [
   { id: 'leonardo-anime-pastel', label: 'Anime Pastel Dream', hint: 'Leonardo · anime', provider: 'leonardo', caps: ['t2i'] },
 
   { id: 'midjourney-v7', label: 'midjourney-v7', hint: 'Midjourney · via proxy', provider: 'midjourney', caps: ['t2i'] },
+
+  { id: 'minimax-image-01', label: 'image-01', hint: 'MiniMax · Hailuo · text-to-image', provider: 'minimax', caps: ['t2i'] },
+  { id: 'minimax-music-26', label: 'music-2.6', hint: 'MiniMax · v2.6 · 99 remaining today', provider: 'minimax', caps: ['music'] },
 ];
 
 export const VIDEO_MODELS: MediaModel[] = [
@@ -136,7 +139,7 @@ export const VIDEO_MODELS: MediaModel[] = [
   { id: 'sora-2', label: 'sora-2', hint: 'OpenAI · via Fal', provider: 'fal', caps: ['t2v'] },
   { id: 'sora-2-pro', label: 'sora-2-pro', hint: 'OpenAI · via Fal', provider: 'fal', caps: ['t2v'] },
 
-  { id: 'minimax-video-01', label: 'video-01', hint: 'MiniMax · Hailuo', provider: 'minimax', caps: ['t2v', 'i2v'] },
+  { id: 'minimax-video-01', label: 'video-01', hint: 'MiniMax · Hailuo-2.3 · 2高速版+2标准版/天', provider: 'minimax', caps: ['t2v', 'i2v'] },
   { id: 'hyperframes-html', label: 'hyperframes-html', hint: 'HyperFrames · local HTML renderer', provider: 'hyperframes', caps: ['t2v'] },
 ];
 
